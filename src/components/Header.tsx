@@ -3,9 +3,10 @@ import { Database, ShieldCheck, UserCheck } from 'lucide-react';
 
 interface HeaderProps {
   totalRegistros: number;
+  isSupabaseConfigured: boolean;
 }
 
-export const Header: React.FC<HeaderProps> = ({ totalRegistros }) => {
+export const Header: React.FC<HeaderProps> = ({ totalRegistros, isSupabaseConfigured }) => {
   return (
     <header className="border-b border-slate-200/80 bg-white/80 backdrop-blur-md sticky top-0 z-30">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -18,15 +19,28 @@ export const Header: React.FC<HeaderProps> = ({ totalRegistros }) => {
               Portal de Cadastro SPA
             </h1>
             <p className="text-xs text-slate-500 font-medium">
-              Validação reativa de formulário & persistência local
+              Validação reativa de formulário & persistência {isSupabaseConfigured ? 'Supabase (PostgreSQL)' : 'em nuvem / local'}
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-4 text-xs text-slate-600">
-          <div className="flex items-center gap-1.5" title="Dados salvos no navegador sem necessidade de backend">
-            <Database className="w-3.5 h-3.5 text-emerald-600" />
-            <span className="font-medium text-slate-700">LocalStorage Ativo</span>
+          <div
+            className="flex items-center gap-1.5"
+            title={
+              isSupabaseConfigured
+                ? 'Conectado ao Supabase (PostgreSQL em nuvem)'
+                : 'Aguardando variáveis do Supabase no .env (modo LocalStorage de contingência ativo)'
+            }
+          >
+            <Database
+              className={`w-3.5 h-3.5 ${
+                isSupabaseConfigured ? 'text-emerald-600' : 'text-amber-500'
+              }`}
+            />
+            <span className="font-medium text-slate-700">
+              {isSupabaseConfigured ? 'Supabase Conectado' : 'Aguardando Chaves Supabase'}
+            </span>
           </div>
           <span className="text-slate-300" aria-hidden="true">|</span>
           <div className="flex items-center gap-1.5" title="Validação de integridade de dados ativa">
