@@ -1,7 +1,34 @@
-import React, { useState, useMemo } from 'react';
-import { Search, ArrowUpDown, Trash2, Download, Inbox, Sparkles, FileSpreadsheet } from 'lucide-react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { Search, ArrowUpDown, Trash2, Download, Inbox, Sparkles, FileSpreadsheet, ChevronDown, Check } from 'lucide-react';
 import { Registro } from '../types';
 import { RegistroCard } from './RegistroCard';
+
+export type SortOption =
+  | 'data-desc'
+  | 'data-asc'
+  | 'nome-asc'
+  | 'nome-desc'
+  | 'email-asc'
+  | 'email-desc'
+  | 'msg-desc'
+  | 'msg-asc';
+
+interface SortConfig {
+  id: SortOption;
+  label: string;
+  badge?: string;
+}
+
+const SORT_OPTIONS: SortConfig[] = [
+  { id: 'data-desc', label: 'Mais recentes primeiro' },
+  { id: 'data-asc', label: 'Mais antigos primeiro' },
+  { id: 'nome-asc', label: 'Nome (A a Z - Alfabética)' },
+  { id: 'nome-desc', label: 'Nome (Z a A - Alfabética reversa)' },
+  { id: 'email-asc', label: 'E-mail (A a Z)' },
+  { id: 'email-desc', label: 'E-mail (Z a A)' },
+  { id: 'msg-desc', label: 'Mensagem mais longa' },
+  { id: 'msg-asc', label: 'Mensagem mais curta' },
+];
 
 interface RegistrosListProps {
   registros: Registro[];
@@ -21,8 +48,30 @@ export const RegistrosList: React.FC<RegistrosListProps> = ({
   onNotify,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
+  const [sortOption, setSortOption] = useState<SortOption>('data-desc');
+  const [isSortOpen, setIsSortOpen] = useState(false);
   const [confirmingClear, setConfirmingClear] = useState(false);
+  const sortDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Fecha dropdown de ordenação ao clicar fora ou pressionar Escape
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (sortDropdownRef.current && !sortDropdownRef.current.contains(event.target as Node)) {
+        setIsSortOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsSortOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
 
   // Filtragem e Ordenação
   const filteredRegistros = useMemo(() => {
@@ -39,13 +88,34 @@ export const RegistrosList: React.FC<RegistrosListProps> = ({
     }
 
     result.sort((a, b) => {
-      const timeA = new Date(a.criadoEm).getTime();
-      const timeB = new Date(b.criadoEm).getTime();
-      return sortOrder === 'desc' ? timeB - timeA : timeA - timeB;
+      switch (sortOption) {
+        case 'data-desc':
+          return new Date(b.criadoEm).getTime() - new Date(a.criadoEm).getTime();
+        case 'data-asc':
+          return new Date(a.criadoEm).getTime() - new Date(b.criadoEm).getTime();
+        case 'nome-asc':
+          return a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' });
+        case 'nome-desc':
+          return b.nome.localeCompare(a.nome, 'pt-BR', { sensitivity: 'base' });
+        case 'email-asc':
+          return a.email.toLowerCase().localeCompare(b.email.toLowerCase(), 'pt-BR');
+        case 'email-desc':
+          return b.email.toLowerCase().localeCompare(a.email.toLowerCase(), 'pt-BR');
+        case 'msg-desc':
+          return b.mensagem.trim().length - a.mensagem.trim().length;
+        case 'msg-asc':
+          return a.mensagem.trim().length - b.mensagem.trim().length;
+        default:
+          return 0;
+      }
     });
 
     return result;
-  }, [registros, searchTerm, sortOrder]);
+  }, [registros, searchTerm, sortOption]);
+
+  const currentSortLabel = useMemo(() => {
+    return SORT_OPTIONS.find((opt) => opt.id === sortOption)?.label || 'Mais recentes primeiro';
+  }, [sortOption]);
 
   const handleExportCSV = () => {
     if (registros.length === 0) return;
@@ -190,14 +260,128 @@ export const RegistrosList: React.FC<RegistrosListProps> = ({
             />
           </div>
 
-          <button
-            onClick={() => setSortOrder((prev) => (prev === 'desc' ? 'asc' : 'desc'))}
-            className="w-full sm:w-auto px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors flex items-center justify-center gap-1.5 shrink-0 cursor-pointer"
-            title="Alternar ordem de exibição"
-          >
-            <ArrowUpDown className="w-3.5 h-3.5 text-slate-500" />
-            <span>{sortOrder === 'desc' ? 'Mais recentes primeiro' : 'Mais antigos primeiro'}</span>
-          </button>
+          <div className="relative w-full sm:w-auto" ref={sortDropdownRef}>
+            <button
+              type="button"
+              onClick={() => setIsSortOpen((prev) => !prev)}
+              className="w-full sm:w-auto px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors flex items-center justify-between sm:justify-center gap-2 shrink-0 cursor-pointer"
+              title="Alterar ordem de exibição dos registros"
+              aria-haspopup="listbox"
+              aria-expanded={isSortOpen}
+            >
+              <div className="flex items-center gap-1.5">
+                <ArrowUpDown className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                <span className="text-slate-500 hidden md:inline">Ordem:</span>
+                <span className="font-semibold text-slate-800 truncate max-w-[180px] sm:max-w-none">
+                  {currentSortLabel}
+                </span>
+              </div>
+              <ChevronDown
+                className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-150 shrink-0 ${
+                  isSortOpen ? 'rotate-180' : ''
+                }`}
+              />
+            </button>
+
+            {/* Menu Popover de Opções de Ordenação */}
+            {isSortOpen && (
+              <div
+                role="listbox"
+                aria-label="Opções de ordenação"
+                className="absolute right-0 top-full mt-1.5 w-72 bg-white rounded-xl shadow-lg border border-slate-200/90 py-1.5 z-40 animate-in fade-in zoom-in-95 duration-150 divide-y divide-slate-100"
+              >
+                {/* Grupo: Por Data */}
+                <div className="py-1">
+                  <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    Data de Cadastro
+                  </div>
+                  {SORT_OPTIONS.slice(0, 2).map((opt) => {
+                    const isSelected = sortOption === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        role="option"
+                        aria-selected={isSelected}
+                        onClick={() => {
+                          setSortOption(opt.id);
+                          setIsSortOpen(false);
+                        }}
+                        className={`w-full px-3 py-1.5 text-left text-xs flex items-center justify-between transition-colors cursor-pointer ${
+                          isSelected
+                            ? 'bg-indigo-50 text-indigo-700 font-semibold'
+                            : 'text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        <span>{opt.label}</span>
+                        {isSelected && <Check className="w-3.5 h-3.5 text-indigo-600 shrink-0" />}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Grupo: Por Nome */}
+                <div className="py-1">
+                  <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    Nome Completo
+                  </div>
+                  {SORT_OPTIONS.slice(2, 4).map((opt) => {
+                    const isSelected = sortOption === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        role="option"
+                        aria-selected={isSelected}
+                        onClick={() => {
+                          setSortOption(opt.id);
+                          setIsSortOpen(false);
+                        }}
+                        className={`w-full px-3 py-1.5 text-left text-xs flex items-center justify-between transition-colors cursor-pointer ${
+                          isSelected
+                            ? 'bg-indigo-50 text-indigo-700 font-semibold'
+                            : 'text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        <span>{opt.label}</span>
+                        {isSelected && <Check className="w-3.5 h-3.5 text-indigo-600 shrink-0" />}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Grupo: E-mail e Mensagem */}
+                <div className="py-1">
+                  <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    E-mail & Mensagem
+                  </div>
+                  {SORT_OPTIONS.slice(4).map((opt) => {
+                    const isSelected = sortOption === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        role="option"
+                        aria-selected={isSelected}
+                        onClick={() => {
+                          setSortOption(opt.id);
+                          setIsSortOpen(false);
+                        }}
+                        className={`w-full px-3 py-1.5 text-left text-xs flex items-center justify-between transition-colors cursor-pointer ${
+                          isSelected
+                            ? 'bg-indigo-50 text-indigo-700 font-semibold'
+                            : 'text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        <span>{opt.label}</span>
+                        {isSelected && <Check className="w-3.5 h-3.5 text-indigo-600 shrink-0" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
