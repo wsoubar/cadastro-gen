@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Search, ArrowUpDown, Trash2, Download, Inbox, Sparkles } from 'lucide-react';
+import { Search, ArrowUpDown, Trash2, Download, Inbox, Sparkles, FileSpreadsheet } from 'lucide-react';
 import { Registro } from '../types';
 import { RegistroCard } from './RegistroCard';
 
@@ -9,6 +9,7 @@ interface RegistrosListProps {
   onClearAll: () => void;
   onLoadDemoData: () => void;
   onCopyText: (texto: string) => void;
+  onNotify?: (texto: string, tipo?: 'sucesso' | 'info') => void;
 }
 
 export const RegistrosList: React.FC<RegistrosListProps> = ({
@@ -17,6 +18,7 @@ export const RegistrosList: React.FC<RegistrosListProps> = ({
   onClearAll,
   onLoadDemoData,
   onCopyText,
+  onNotify,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
@@ -45,6 +47,60 @@ export const RegistrosList: React.FC<RegistrosListProps> = ({
     return result;
   }, [registros, searchTerm, sortOrder]);
 
+  const handleExportCSV = () => {
+    if (registros.length === 0) return;
+
+    // Escapa valores conforme a RFC 4180
+    const escapeCSV = (field: string | undefined | null) => {
+      if (field === null || field === undefined) return '""';
+      const text = String(field).replace(/"/g, '""');
+      return `"${text}"`;
+    };
+
+    // Cabeçalhos amigáveis em português
+    const headers = ['ID', 'Nome', 'E-mail', 'Mensagem', 'Data de Cadastro'];
+
+    const rows = registros.map((r) => {
+      let dataFormatada = r.criadoEm;
+      try {
+        dataFormatada = new Intl.DateTimeFormat('pt-BR', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+        }).format(new Date(r.criadoEm));
+      } catch {
+        dataFormatada = r.criadoEm;
+      }
+
+      return [
+        escapeCSV(r.id),
+        escapeCSV(r.nome),
+        escapeCSV(r.email),
+        escapeCSV(r.mensagem),
+        escapeCSV(dataFormatada),
+      ].join(';'); // Separador ';' padrão para compatibilidade no Brasil com Excel e planilhas
+    });
+
+    // Prefixo BOM UTF-8 (\uFEFF) para abrir acentos perfeitamente no Excel/Calc
+    const csvContent = '\uFEFF' + [headers.map(escapeCSV).join(';'), ...rows].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute('href', url);
+    downloadAnchor.setAttribute('download', `cadastros_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+    URL.revokeObjectURL(url);
+    if (onNotify) {
+      onNotify(`Arquivo CSV com ${registros.length} ${registros.length === 1 ? 'registro' : 'registros'} baixado com sucesso!`, 'sucesso');
+    }
+  };
+
   const handleExportJSON = () => {
     if (registros.length === 0) return;
     const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(registros, null, 2));
@@ -54,6 +110,9 @@ export const RegistrosList: React.FC<RegistrosListProps> = ({
     document.body.appendChild(downloadAnchor);
     downloadAnchor.click();
     downloadAnchor.remove();
+    if (onNotify) {
+      onNotify('Arquivo JSON baixado com sucesso!', 'sucesso');
+    }
   };
 
   const handleClearClick = () => {
@@ -84,14 +143,22 @@ export const RegistrosList: React.FC<RegistrosListProps> = ({
 
         {/* Ações globais */}
         {registros.length > 0 && (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={handleExportCSV}
+              title="Baixar todos os registros em formato de planilha CSV"
+              className="px-3 py-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100/80 border border-emerald-200/80 rounded-lg shadow-2xs transition-colors flex items-center gap-1.5 cursor-pointer"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Baixar CSV</span>
+            </button>
             <button
               onClick={handleExportJSON}
               title="Exportar todos os registros em arquivo JSON"
               className="px-3 py-1.5 text-xs font-medium text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg shadow-2xs transition-colors flex items-center gap-1.5 cursor-pointer"
             >
               <Download className="w-3.5 h-3.5 text-slate-500" />
-              <span>Exportar</span>
+              <span>JSON</span>
             </button>
             <button
               onClick={handleClearClick}

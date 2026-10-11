@@ -24,7 +24,7 @@ export default function App() {
     });
   };
 
-  // Adicionar novo registro
+  // Adicionar novo registro 123
   const handleAddRegistro = (novo: Omit<Registro, 'id' | 'criadoEm'>) => {
     const registroCompleto: Registro = {
       ...novo,
@@ -115,6 +115,7 @@ export default function App() {
           onClearAll={handleClearAll}
           onLoadDemoData={handleLoadDemoData}
           onCopyText={handleCopyText}
+          onNotify={showToast}
         />
       </main>
 

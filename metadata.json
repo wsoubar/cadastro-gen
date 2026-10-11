@@ -2,5 +2,7 @@
   "name": "Cadastro SPA - Formulário com Validação",
   "description": "Aplicação de página única para cadastro com validação de formulário em tempo real, persistência em LocalStorage e listagem de registros.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }
